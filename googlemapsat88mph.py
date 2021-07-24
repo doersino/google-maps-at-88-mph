@@ -403,26 +403,30 @@ class MapTileGrid:
     def corners_identical_to(self, other):
         """
         Checks whether the four corners of this grid are identical to the ones
-        from another grid.
+        from another grid. The other grid must already be fully loaded (or, at
+        least, there corners must be present).
         """
 
         self_corners = self.corners()
         other_corners = other.corners()
 
-        diffs = 0
+        # download self's corners
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            {executor.submit(maptile.load): maptile for maptile in self_corners}
+
+        # rety
+        missing_tiles = [maptile for maptile in self_corners if maptile.status == MapTileStatus.ERROR]
+        for maptile in missing_tiles:
+            maptile.load()
+        missing_tiles = [maptile for maptile in self_corners if maptile.status == MapTileStatus.ERROR]
+        if missing_tiles:
+            raise MissingTilesError(f"unable to download one or more corner tiles", len(missing_tiles), len(self_corners))
+
+        # super basic difference metric: just sum up the differences of each
+        # channel for every pixel (for every corner) – you'd think this would be
+        # slow, but it takes 0.2s on my 2015 machine for all four combined (the
+        # download is the slow part!)
         for self_corner, other_corner in zip(self_corners, other_corners):
-            self_corner.load()
-            other_corner.load()
-
-            # retry once for good measure
-            self_corner.load()
-            other_corner.load()
-
-            if self_corner.status == MapTileStatus.ERROR or other_corner.status == MapTileStatus.ERROR:
-                raise MissingTilesError(f"unable to download one or more corner tiles", 1, 1)
-
-            # super basic difference metric: just sum up the differences of each
-            # channel for every pixel (for every corner)
             diff = ImageChops.difference(self_corner.image, other_corner.image)
             if any([True for channels in list(diff.getdata()) if channels != (0,0,0)]):
                 return False
@@ -504,7 +508,7 @@ class Printer:
 def main():
     parser = argparse.ArgumentParser(
         add_help=False,  # avoid adding the automatic `-h` and `--help` options
-                         # since `-h` is required for specifying the height
+                         # since `-h` is needed for specifying the image height
         description="Google Maps regularly updates its satellite imagery, but older versions are kept around for a year or three. This tool automatically crawls its way through these versions, figuring out which provide unique imagery and downloading it for a user-defined \033[3m(that's you! you get to define things!)\033[0m area, eventually assembling it in the form of a GIF. Based on ærialbot (see https://github.com/doersino/aerialbot). Requires the \033[3mPillow\033[0m and \033[3mrequests\033[0m libraries.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter  # show defaults
     )
@@ -530,27 +534,27 @@ def main():
         help="Current Google Maps version. This tool tries to determine it automatically, but if that fails (due to a GDPR consent screen, for instance), you can override the likely-outdated default/fallback: Navigate to Google Maps in your browser, open its developer tools, and search the HTML source code of the page for the string 'khms0.google.com/kh/v\\u003d'. The number right after the 'd' is the current version."
     )
 
-    positional = parser.add_argument_group("Positional argument")
-    positional.add_argument("point",
+    pointy = parser.add_argument_group("Point of interest")
+    pointy.add_argument("point",
         metavar="LAT,LON",
         type=str,
-        help="Point of interest specified as a latitude-longitude pair, \033[3me.g.\033[0m, '37.453896,126.446829'. (Be aware that negative latitudes yield argument parsing errors unless you wrap the point, preceded with a space, in quotes, \033[3me.g.\033[0m, ' -51.699730,-57.852601'.)"
+        help="\033[1mRequired.\033[0m Specified as a latitude-longitude pair, \033[3me.g.\033[0m, '37.453896,126.446829'. (Be aware that negative latitudes yield argument parsing errors unless you wrap the point, preceded with a space, in quotes, \033[3me.g.\033[0m, ' -51.699730,-57.852601'.)"
     )
 
     area = parser.add_argument_group("Area definition",
-        description="Some explanation of these options is in order: You need to specify width and height. You can also specify a maximum meters per pixel constraint – see below – but you don't have to if image width or height are specified (note that if neither is, the resulting image dimensions vary by latitude), the maximum meters per pixel constraint can be automatically derived in this case. Only image width \033[3mor\033[0m height is required, the other will be computed. Note that if you set \033[3mboth\033[0m image width and height but they don't match the aspect ratio of the area, things will look squished."
+        description="Some explanation of these arguments is in order: You \033[3mneed\033[0m to specify width and height. You can also specify a maximum meters per pixel constraint – see below – but you don't have to if image width or height are specified (note that if neither is, the resulting image dimensions vary by latitude), the maximum meters per pixel constraint can be automatically derived in this case. Only image width \033[3mor\033[0m height is required, the other will be computed. Note that if you set \033[3mboth\033[0m image width and height but they don't match the aspect ratio of the area, things will look squished."
     )
-    area.add_argument("-w", "--width",
-        metavar="N",
+    area.add_argument("width",
+        metavar="WIDTH",
         type=float,
         default=argparse.SUPPRESS,
-        help="Width of the depicted area in meters."
+        help="\033[1mRequired.\033[0m Width of the depicted area in meters."
     )
-    area.add_argument("-h", "--height",
-        metavar="N",
+    area.add_argument("height",
+        metavar="HEIGHT",
         type=float,
         default=argparse.SUPPRESS,
-        help="Height of the depicted area in meters."
+        help="\033[1mRequired.\033[0m Height of the depicted area in meters."
     )
     area.add_argument("-m", "--max-meters-per-pixel",
         dest="max_meters_per_pixel",
@@ -559,14 +563,14 @@ def main():
         default=argparse.SUPPRESS,
         help="Maximally allowable meters contained in a single pixel of the result image (\033[3mafter\033[0m scaling to image width and height), determines the required tile zoom level, setting it as coarse as possible (to conserve bandwidth and processing overhead) while still fulfilling this constraint."
     )
-    area.add_argument("--image-width",
+    area.add_argument("-w", "--image-width",
         dest="image_width",
         metavar="N",
         type=float,
         default=argparse.SUPPRESS,
         help="Width of the result image in pixels."
     )
-    area.add_argument("--image-height",
+    area.add_argument("-h", "--image-height",
         dest="image_height",
         metavar="N",
         type=float,
@@ -575,24 +579,30 @@ def main():
         )
 
     output = parser.add_argument_group("Output configuration",
-        description="All files will be output in the current directory. Note that, as opposed to how it's done in ærialbot, map tiles aren't written to the file system."
+        description="All files will be output in the current directory. Note that, as opposed to how it's done in ærialbot, map tiles aren't persisted to the file system."
     )
     output.add_argument("-f", "--format",
         dest="output_format",
         type=str,
         choices=["jpegs", "gif", "both"],
         default="both",
-        help="output format: 'jpegs' will output a bunch of jpegs, 'gif' will collect them into a gif instead (with the usual fidelity and filesize implications), 'both' will do both"
+        help="Output format: 'jpegs' will output a bunch of JPEGs, 'gif' will collect them into a GIF instead (with the usual fidelity and filesize implications), 'both' will do both."
     )
     output.add_argument("-q", "--quality",
         type=int,
         default=90,
-        help="jpeg compression quality (0-100), only relevant if JPEGs are emitted"
+        help="JPEG compression quality (0-100), only relevant if JPEGs are emitted."
     )
     output.add_argument("-r", "--framerate",
         type=float,
         default=3,
-        help="number of frames per second, only relevant if GIFs are emitted"
+        help="Number of frames per second, only relevant if GIFs are emitted."
+    )
+    output.add_argument("-s", "--simpler-filenames",
+        dest="simpler_filenames",
+        default=argparse.SUPPRESS,
+        action="store_true",
+        help="The default output filenames contain a bunch of redundant information because I, the author of this tool, thought it might come in handy. Specify this flag for admittedly saner filenames."
     )
 
     # parse arguments
@@ -632,6 +642,10 @@ def main():
     output_format = args.output_format
     quality = args.quality
     framerate = args.framerate
+
+    image_path_template = "googlemapsat88mph-{datetime}-v{versions}-x{xmin}..{xmax}y{ymin}..{ymax}-z{zoom}-{latitude},{longitude}-{width}x{height}m"
+    if hasattr(args, "simpler_filenames"):
+        image_path_template = "googlemapsat88mph-lat{latitude}-lon{longitude}-width{width}m-height{height}m-versions{versions}"
 
     # process max_meters_per_pixel option
     if image_width is None and image_height is None:
@@ -684,8 +698,6 @@ def main():
     ############################################################################
 
     printer.info("Alrighty, prep work's done!")
-
-    image_path_template = "googlemapsat88mph-{datetime}-v{versions}-x{xmin}..{xmax}y{ymin}..{ymax}-z{zoom}-{latitude},{longitude}-{width}x{height}m"
 
     previousGrid = None
     downloadedImages = []
@@ -790,23 +802,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-
-
-
-
-# TODO
-# - mention that if no image width and height given, image size will differ based on lat
-# - consider providing default wdith and height and mmpp
-# - maybe keep a dict of versions and approximate dates as far as i know them? is there any information online? file change dates?
-# - take another stab at not having to create new tilegrids in every iteration,
-#   generally make that stuff more logical
-# - also try to make diff detection more efficient
-# - cull any unnecessary bits of leftover code
-# - write readme, promote on twitter (make a bot? nah...), etc.
-#   explain 88 mph reference
-#   screencapture of cli output
-#   example gifs/mp4s: my hood, some place in the us, turkey cpi, something in korea or china
-#   check how often versions change
-# examples:
-# python3 googlemapsat88mph.py 48.471839,8.935646 -w 300 -h 300 --image-width 500 --image-height 500
-# python3 googlemapsat88mph.py "37.087214, 40.058665" -w 15000 -h 15000 -m 10

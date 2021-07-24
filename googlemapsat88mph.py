@@ -14,7 +14,7 @@ import threading
 
 import requests
 
-from PIL import Image, ImageEnhance, ImageOps
+from PIL import Image, ImageEnhance, ImageOps, ImageChops
 Image.MAX_IMAGE_PIXELS = None
 
 
@@ -157,18 +157,15 @@ class MapTile:
     def __repr__(self):
         return f"MapTile({self.version}, {self.zoom}, {self.x}, {self.y})"
 
-    def zoomed(self, zoom_delta):
+    def load(self):
         """
-        Returns a MapTileGrid of the area covered by this map tile, but zoomed
-        by zoom_delta. This works this way because by increasing the zoom level
-        by 1, a tile's area is subdivided into 4 quadrants.
+        Downloads the tile image if it hasn't been downloaded yet. Can be used
+        for retrying on errors.
         """
 
-        zoom = self.zoom + zoom_delta
-        fac = (2 ** zoom_delta)
-        return MapTileGrid([[MapTile(self.version, zoom, self.x * fac + x, self.y * fac + y)
-                             for y in range(0, fac)]
-                             for x in range(0, fac)])
+        if self.status != MapTileStatus.DOWNLOADED:
+            self.download()
+
 
     def download(self):
         """
@@ -362,22 +359,22 @@ class MapTileGrid:
         random.shuffle(tiles)
 
         # download tiles using threadpool (2-10 times faster than
-        # [maptile.download() for maptile in self.flat()]), see
+        # [maptile.load() for maptile in self.flat()]), see
         # https://docs.python.org/dev/library/concurrent.futures.html#threadpoolexecutor-example
         threads = max(self.width, self.height)
         with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
-            {executor.submit(maptile.download): maptile for maptile in tiles}
-
-        # finish up progress indicator
-        prog_thread.join()
-        prog.cleanup()
+            {executor.submit(maptile.load): maptile for maptile in tiles}
 
         # retry failed downloads if fewer than 20% of tiles are missing
         missing_tiles = [maptile for maptile in self.flat() if maptile.status == MapTileStatus.ERROR]
         if 0 < len(missing_tiles) < 0.2 * len(self.flat()):
             print("Retrying missing tiles...")
             for maptile in missing_tiles:
-                maptile.download()
+                maptile.load()
+
+        # finish up progress indicator
+        prog_thread.join()
+        prog.cleanup()
 
         # check if we've got everything now
         missing_tiles = [maptile for maptile in self.flat() if maptile.status == MapTileStatus.ERROR]
@@ -385,6 +382,49 @@ class MapTileGrid:
             raise RuntimeError(f"unable to download one or more map tiles: {missing_tiles}")
 
         # TODO instead of raising a runtime error, return something that will let main know things didn't work? break on 3 consecutive versions not working?
+
+    def corners(self):
+        """
+        Returns a list of the four tiles in the corners of the grid. If the grid
+        consists of only one or two tiles, they will occur multiple times.
+        """
+
+        return [self.at(x, y) for x in [0, -1] for y in [0, -1]]
+
+
+    def cornersIdentical(self, other):
+        self_corners = self.corners()
+        other_corners = other.corners()
+
+        diffs = 0
+        for self_corner, other_corner in zip(self_corners, other_corners):
+            self_corner.load()
+            other_corner.load()
+
+            # retry for good measure
+            # TODO do this better?
+            self_corner.load()
+            other_corner.load()
+
+            if self_corner.status == MapTileStatus.ERROR or other_corner.status == MapTileStatus.ERROR:
+                raise RuntimeError("TODO error message")
+                # TODO custom error (also in grid download function), handle gracefully in main
+
+            diff = ImageChops.difference(self_corner.image, other_corner.image)
+            diffs += sum([channel for pixel in list(diff.getdata()) for channel in pixel])
+            print(sum([channel for pixel in list(diff.getdata()) for channel in pixel]))
+            if sum([channel for pixel in list(diff.getdata()) for channel in pixel]) > 0:
+                print(list(diff.getdata()))
+                self_corner.image.save("test.jpg")
+                other_corner.image.save("test2.jpg")
+                diff.save("test3.png")
+                #dfndfn
+
+        # TODO improve this number?
+        return diffs < 256 ** 2
+
+        # TODO make sure the corners of both grids are downloaded
+        # TODO compare with pillow and some error metric
 
     def stitch(self):
         """
@@ -413,6 +453,8 @@ class MapTileImage:
         Crops the image such that it really only covers the area within the
         input GeoRect. This function must only be called once per image.
         """
+
+        return  # TODO# TODO# TODO# TODO# TODO# TODO# TODO# TODO# TODO
 
         sw_x, sw_y = WebMercator.project(georect.sw, zoom)
         ne_x, ne_y = WebMercator.project(georect.ne, zoom)
@@ -444,7 +486,7 @@ def info(message):
     print(message)
 
 def debug(message):
-    if True:
+    if False:
         print(f"↪ {message}")
 
 def warning(message):
@@ -540,7 +582,11 @@ def main():
     rect = GeoRect.around_geopoint(p, width, height)
     debug(rect)
 
+    downloadedGrids = []
+    downloadedImages = []
     for version in range(current_version, -1, -1):
+
+        # TODO maybe prepend version to status messages here?
 
         info(f"Alrighty, prep work's done, trying version {version}...")
         # TODO only do the alrighty thing on the first iteration (or before entering the loop)
@@ -549,7 +595,14 @@ def main():
         grid = MapTileGrid.from_georect(rect, zoom, version)
         debug(grid)
 
-        # TODO test four corners? repurpose quality check function? check if they're different from the previously downloaded version?
+        if version != current_version:
+            # TODO improve message
+            #info("Downloading the tiles at the corners and comparing with previously downloaded version...")
+            info("Comparing corners with previously downloaded version...")
+            # TODO compare against corners of all previously downloaded versions since sometimes rollback?
+            if grid.cornersIdentical(downloadedGrids[-1]):
+                info("Imagery seems identical, going to next version instead of downloading this one...")
+                continue
 
         info("Downloading tiles...")
         grid.download()
@@ -588,6 +641,21 @@ def main():
         image_quality = 90
         image.save(image_path, image_quality)
 
+        # keep track of TODO
+        downloadedImages.append(image)
+
+        # keep track of TODO
+        downloadedGrids.append(grid)
+
+        print(downloadedImages)
+
+        # TODO if gif generation: make!
+        # TODO unindent once error handling done, also status message
+        # TODO proper filename
+        # TODO maybe option for format: jpeg, gif, both. also gif framerate option
+        # TODO => maybe class for "maptilegif"?
+        downloadedImages[0].image.save("test.gif", append_images=[test.image for test in downloadedImages[1:]], save_all=True, duration=200, loop=0)
+
     info("All done!")
 
 
@@ -599,16 +667,17 @@ if __name__ == "__main__":
 
 
 # TODO
-# - implement image diffing based on corners, only download images different to what's come before
-#   (keep a list/dict of all "accepted" version since imagery seems to regularly revert)
-#   output sensible messages on the cli
 # - more graceful termination (generally better error checking?, also for 4-corners?)
 # - suppress debug output depending on verbose flag or something
 #   maybe colorful status output
 #   generally think about output
-# - maybe optional gif creation?
 # - cull unnecessary bits of leftover code
 # - write readme, promote on twitter (make a bot? nah...), etc.
 #   explain 88 mph reference
 #   screencapture of cli output
 #   example gifs/mp4s: my hood, some place in the us, turkey cpi, something in korea or china
+#   check how often versions change
+
+
+# python3 googlemapsat88mph.py 48.471839,8.935646 -w 300 -h 300 -m 0.2 --image_width 500 --image_height 500
+# python3 googlemapsat88mph.py "37.087214, 40.058665" -w 15000 -h 15000 -m 10

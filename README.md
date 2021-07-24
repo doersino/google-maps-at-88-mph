@@ -44,9 +44,9 @@ Once you've set everything up, run the following command:
 $ python3 googlemapsat88mph.py --help
 ```
 
-That'll tell you in detail about the options. Most important are the three positional arguments:
+That'll wax poetic about the available command-line flags and arguments. Importantly, there are three positional arguments, *i.e.*, you've got to set these:
 
-1. The point you're interested in, along with
+1. The latitude-longitude pair you're interested in, along with
 2. how wide (east-west extent) and...
 3. ...how tall (north-south extent, both in meters) the downloaded area should be.
 
@@ -58,7 +58,7 @@ For example, the following invocation will create the first of the GIFs embedded
 $ python3 googlemapsat88mph.py 38.900068,-77.036555 1000 1000 -w 500
 ```
 
-That's basically it, but for your viewing pleasure, here's a video of the CLI in action:
+That's basically it! For your viewing pleasure, here's a video of the CLI in action, first scrolling through the `--help` output, then executing the command from above:
 
 https://user-images.githubusercontent.com/1944410/126881010-a007e632-2229-440b-a0fe-768f5ce22d14.mp4
 
@@ -75,7 +75,7 @@ I became aware of how Google Maps versions its imagery as a side-effect of build
 
 ### Does this violate Google's terms of use?
 
-Probably. I haven't checked. But they haven't banned my IP for downloading tens of thousands of map tiles during development and testing (of ærialbot *and* this), so you're probably good as long as you don't use this tool for downloading a centimeter-scale map of your country. What's more, I can't think of a way in which this tool competes with or keeps revenue from any of Google's products. (And it's always worth keeping in mind that Google is an incredibly profitable company that earns the bulk of its income via folks like you just going about their days surfing the ad-filled web.)
+Probably. I haven't checked. But they haven't banned my IP for downloading tens of thousands of map tiles during development and testing (of [ærialbot](https://github.com/doersino/aerialbot) *and* this), so you're probably good as long as you don't use this tool for downloading a centimeter-scale map of your country. What's more, I can't think of a way in which this tool competes with or keeps revenue from any of Google's products. (And it's always worth keeping in mind that Google is an incredibly profitable company that earns the bulk of its income via folks like you just going about their days surfing the ad-filled web.)
 
 ### Something is broken – can you fix it?
 

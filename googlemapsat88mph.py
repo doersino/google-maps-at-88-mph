@@ -306,8 +306,10 @@ class MapTileGrid:
     result image.
     """
 
-    def __init__(self, maptiles):
+    def __init__(self, maptiles, version):
         self.maptiles = maptiles
+        self.version = version
+
         self.width = len(maptiles)
         self.height = len(maptiles[0])
         self.image = None
@@ -334,7 +336,7 @@ class MapTileGrid:
                 col.append(maptile)
             maptiles.append(col)
 
-        return cls(maptiles)
+        return cls(maptiles, version)
 
     def at(self, x, y):
         """Accessor with wraparound for negative values: x/y<0 => x/y+=w/h."""
@@ -398,7 +400,7 @@ class MapTileGrid:
         return [self.at(x, y) for x in [0, -1] for y in [0, -1]]
 
 
-    def corners_identical(self, other):
+    def corners_identical_to(self, other):
         """
         Checks whether the four corners of this grid are identical to the ones
         from another grid.
@@ -516,6 +518,7 @@ def main():
         help="Show this message and exit."
     )
     optional.add_argument("-v", "--verbose",
+        default=argparse.SUPPRESS,
         action="store_true",
         help="Output debug information while running."
     )
@@ -535,7 +538,7 @@ def main():
     )
 
     area = parser.add_argument_group("Area definition",
-        description="Some explanation of these options is in order: You need to specify width and height. You can also specify a maximum meters per pixel constraint – see below – but you don't have to if image width or height are specified, it can be automatically derived in this case. Of these two, only one is required, the other will be computed. Note that if you set both image width and height but they don't match the aspect ratio of the area, things will look squished."
+        description="Some explanation of these options is in order: You need to specify width and height. You can also specify a maximum meters per pixel constraint – see below – but you don't have to if image width or height are specified (note that if neither is, the resulting image dimensions vary by latitude), the maximum meters per pixel constraint can be automatically derived in this case. Only image width \033[3mor\033[0m height is required, the other will be computed. Note that if you set \033[3mboth\033[0m image width and height but they don't match the aspect ratio of the area, things will look squished."
     )
     area.add_argument("-w", "--width",
         metavar="N",
@@ -596,7 +599,8 @@ def main():
     args = parser.parse_args()
 
     # initialize status messages printer
-    printer = Printer(args.verbose)
+    verbose = hasattr(args, "verbose")
+    printer = Printer(verbose)
 
     printer.info("Processing command-line options...")
     printer.debug(args)
@@ -696,7 +700,7 @@ def main():
             # if we're not on the first iteration, check if the imagery differs at the corners
             if version != current_version:
                 printer.info("Downloading corner tiles and comparing with previously downloaded version...")
-                if grid.corners_identical(previousGrid):
+                if grid.corners_identical_to(previousGrid):
                     printer.info("Imagery seems identical, going to next version instead of downloading this one...")
                     continue
 
@@ -791,14 +795,18 @@ if __name__ == "__main__":
 
 
 # TODO
-# - commit, then maybe take another stab at not having to create new tilegrids in every iteration
+# - mention that if no image width and height given, image size will differ based on lat
+# - consider providing default wdith and height and mmpp
+# - maybe keep a dict of versions and approximate dates as far as i know them? is there any information online? file change dates?
+# - take another stab at not having to create new tilegrids in every iteration,
+#   generally make that stuff more logical
 # - also try to make diff detection more efficient
-# - cull unnecessary bits of leftover code
+# - cull any unnecessary bits of leftover code
 # - write readme, promote on twitter (make a bot? nah...), etc.
 #   explain 88 mph reference
 #   screencapture of cli output
 #   example gifs/mp4s: my hood, some place in the us, turkey cpi, something in korea or china
 #   check how often versions change
 # examples:
-# python3 googlemapsat88mph.py 48.471839,8.935646 -w 300 -h 300 -m 0.2 --image-width 500 --image-height 500
+# python3 googlemapsat88mph.py 48.471839,8.935646 -w 300 -h 300 --image-width 500 --image-height 500
 # python3 googlemapsat88mph.py "37.087214, 40.058665" -w 15000 -h 15000 -m 10

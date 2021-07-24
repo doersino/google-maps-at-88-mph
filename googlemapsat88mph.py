@@ -509,7 +509,7 @@ def main():
     parser = argparse.ArgumentParser(
         add_help=False,  # avoid adding the automatic `-h` and `--help` options
                          # since `-h` is needed for specifying the image height
-        description="Google Maps regularly updates its satellite imagery, but older versions are kept around for a year or three. This tool automatically crawls its way through these versions, figuring out which provide unique imagery and downloading it for a user-defined \033[3m(that's you! you get to define things!)\033[0m area, eventually assembling it in the form of a GIF. Based on ærialbot (see https://github.com/doersino/aerialbot). Requires the \033[3mPillow\033[0m and \033[3mrequests\033[0m libraries.",
+        description="Google Maps regularly updates the satellite imagery it serves its users, but outdated versions of the imagery are kept around for a year or two. This tool automatically crawls its way through these versions, figuring out which provide unique imagery and downloading it for a user-defined \033[3m(that's you! you get to define things!)\033[0m area, eventually assembling it in the form of a GIF. Based on ærialbot (see https://github.com/doersino/aerialbot). Requires the \033[3mPillow\033[0m and \033[3mrequests\033[0m libraries.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter  # show defaults
     )
 
@@ -602,7 +602,7 @@ def main():
         dest="simpler_filenames",
         default=argparse.SUPPRESS,
         action="store_true",
-        help="The default output filenames contain a bunch of redundant information because I, the author of this tool, thought it might come in handy. Specify this flag for admittedly saner filenames."
+        help="The default output filenames contain a bunch of redundant information because I, the author of this tool, thought it might come in handy. Pass this flag for admittedly saner filenames."
     )
 
     # parse arguments

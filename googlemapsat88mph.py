@@ -144,7 +144,7 @@ class MapTile:
     housekeeping stuff.
     """
 
-    def __init__(self, version, zoom, x, y):  # TODO refactor order (also in repr)
+    def __init__(self, version, zoom, x, y):
         self.version = version
         self.zoom = zoom
         self.x = x
@@ -178,16 +178,13 @@ class MapTile:
         try:
             url_template = "https://khms2.google.com/kh/v={version}?x={x}&y={y}&z={zoom}"
             url = url_template.format(version=self.version, x=self.x, y=self.y, zoom=self.zoom)
-            r = requests.get(url, headers={'User-Agent': USER_AGENT})
+            r = requests.get(url, headers={"User-Agent": USER_AGENT})
         except requests.exceptions.ConnectionError:
             self.status = MapTileStatus.ERROR
             return
 
-        # error handling (note that a warning is appropriate here – if this tile
-        # is one of a tiles used in imagery quality testing, an error is not an
-        # unexpected outcome and should thus not be thrown)
+        # error handling
         if r.status_code != 200:
-            warning(f"Unable to download {self}, status code {r.status_code}.")
             self.status = MapTileStatus.ERROR
             return
 
@@ -221,7 +218,7 @@ class ProgressIndicator:
         See https://stackoverflow.com/a/39452138 for color escapes.
         """
 
-        def p(s): print(s + "\033[0m", end='')
+        def p(s): print(s + "\033[0m", end="")
 
         if maptile.status == MapTileStatus.PENDING:
             p("░░")
@@ -273,7 +270,7 @@ class ProgressIndicator:
         # move cursor back up to the beginning of the progress indicator for
         # the next iteration, see
         # http://www.tldp.org/HOWTO/Bash-Prompt-HOWTO/x361.html
-        print(f"\033[{self.maptilegrid.height + 1}A", end='')
+        print(f"\033[{self.maptilegrid.height + 1}A", end="")
 
     def loop(self):
         """Main loop."""
@@ -290,6 +287,17 @@ class ProgressIndicator:
 
         print(f"\033[{self.maptilegrid.height}B")
 
+
+class MissingTilesError(Exception):
+    """Exception raised when a MapTileGrid couldn't be completely downloaded."""
+
+    def __init__(self, message, missing, total):
+        self.message = message
+        self.missing = missing
+        self.total = total
+
+    def __str__(self):
+        return self.message
 
 class MapTileGrid:
     """
@@ -379,9 +387,7 @@ class MapTileGrid:
         # check if we've got everything now
         missing_tiles = [maptile for maptile in self.flat() if maptile.status == MapTileStatus.ERROR]
         if missing_tiles:
-            raise RuntimeError(f"unable to download one or more map tiles: {missing_tiles}")
-
-        # TODO instead of raising a runtime error, return something that will let main know things didn't work? break on 3 consecutive versions not working?
+            raise MissingTilesError(f"unable to download one or more map tiles", len(missing_tiles), len(self.flat()))
 
     def corners(self):
         """
@@ -392,7 +398,12 @@ class MapTileGrid:
         return [self.at(x, y) for x in [0, -1] for y in [0, -1]]
 
 
-    def cornersIdentical(self, other):
+    def corners_identical(self, other):
+        """
+        Checks whether the four corners of this grid are identical to the ones
+        from another grid.
+        """
+
         self_corners = self.corners()
         other_corners = other.corners()
 
@@ -401,38 +412,28 @@ class MapTileGrid:
             self_corner.load()
             other_corner.load()
 
-            # retry for good measure
-            # TODO do this better?
+            # retry once for good measure
             self_corner.load()
             other_corner.load()
 
             if self_corner.status == MapTileStatus.ERROR or other_corner.status == MapTileStatus.ERROR:
-                raise RuntimeError("TODO error message")
-                # TODO custom error (also in grid download function), handle gracefully in main
+                raise MissingTilesError(f"unable to download one or more corner tiles", 1, 1)
 
+            # super basic difference metric: just sum up the differences of each
+            # channel for every pixel (for every corner)
             diff = ImageChops.difference(self_corner.image, other_corner.image)
-            diffs += sum([channel for pixel in list(diff.getdata()) for channel in pixel])
-            print(sum([channel for pixel in list(diff.getdata()) for channel in pixel]))
-            if sum([channel for pixel in list(diff.getdata()) for channel in pixel]) > 0:
-                print(list(diff.getdata()))
-                self_corner.image.save("test.jpg")
-                other_corner.image.save("test2.jpg")
-                diff.save("test3.png")
-                #dfndfn
+            if any([True for channels in list(diff.getdata()) if channels != (0,0,0)]):
+                return False
 
-        # TODO improve this number?
-        return diffs < 256 ** 2
-
-        # TODO make sure the corners of both grids are downloaded
-        # TODO compare with pillow and some error metric
+        return True
 
     def stitch(self):
         """
-        Stitches the tiles together. Must not be called before all tiles have
-        been loaded.
+        Stitches the tiles comprising this grid together. Must not be called
+        before all tiles have been loaded.
         """
 
-        image = Image.new('RGB', (self.width * TILE_SIZE, self.height * TILE_SIZE))
+        image = Image.new("RGB", (self.width * TILE_SIZE, self.height * TILE_SIZE))
         for x in range(0, self.width):
             for y in range(0, self.height):
                 image.paste(self.maptiles[x][y].image, (x * TILE_SIZE, y * TILE_SIZE))
@@ -442,8 +443,9 @@ class MapTileGrid:
 class MapTileImage:
     """Image cropping, resizing and enhancement."""
 
-    def __init__(self, image):
+    def __init__(self, image, version):
         self.image = image
+        self.version = version
 
     def save(self, path, quality=90):
         self.image.save(path, quality=quality)
@@ -453,8 +455,6 @@ class MapTileImage:
         Crops the image such that it really only covers the area within the
         input GeoRect. This function must only be called once per image.
         """
-
-        return  # TODO# TODO# TODO# TODO# TODO# TODO# TODO# TODO# TODO
 
         sw_x, sw_y = WebMercator.project(georect.sw, zoom)
         ne_x, ne_y = WebMercator.project(georect.ne, zoom)
@@ -482,85 +482,163 @@ class MapTileImage:
         self.image = self.image.resize((round(width), round(height)), resample=Image.LANCZOS)
 
 
-def info(message):
-    print(message)
+class Printer:
+    def __init__(self, verbose):
+        self.verbose = verbose
 
-def debug(message):
-    if False:
-        print(f"↪ {message}")
+    def head(self, message):
+        print(f"\033[1m{message}\033[0m")
 
-def warning(message):
-    print(f"Warning: {message}")
+    def info(self, message):
+        print(message)
+
+    def debug(self, message):
+        if self.verbose:
+            print(f"\033[2m{message}\033[0m")
+
+    def warn(self, message):
+        print(f"\033[35m{message}\033[0m")
 
 def main():
-    # TODO argument for most recent version? otherwise, how to get it?
+    parser = argparse.ArgumentParser(
+        add_help=False,  # avoid adding the automatic `-h` and `--help` options
+                         # since `-h` is required for specifying the height
+        description="Google Maps regularly updates its satellite imagery, but older versions are kept around for a year or three. This tool automatically crawls its way through these versions, figuring out which provide unique imagery and downloading it for a user-defined \033[3m(that's you! you get to define things!)\033[0m area, eventually assembling it in the form of a GIF. Based on ærialbot (see https://github.com/doersino/aerialbot). Requires the \033[3mPillow\033[0m and \033[3mrequests\033[0m libraries.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter  # show defaults
+    )
 
-    # handle potential cli arguments
-    parser = argparse.ArgumentParser(add_help=False)
-    # TODO description of what this program does
-    # TODO need to explain what needs to be given and how the rest influences each other, see config.sample.ini
-    parser.add_argument('point', metavar='LAT,LON', type=str, help='a point given as a latitude-longitude pair, e.g. \'37.453896,126.446829\'')
-    parser.add_argument('--help', action='help', default=argparse.SUPPRESS, help=argparse._('show this help message and exit'))  # override default help argument so that only --help (and not -h) can call
-    parser.add_argument('-m', '--max-meters-per-pixel', dest='max_meters_per_pixel', metavar='N', type=float, help='a maximum meters per pixel constraint that will override your configuration')
-    parser.add_argument('-w', '--width', dest='width', metavar='N', type=float, help='width of the depicted area in meters, will override your configuration')
-    parser.add_argument('-h', '--height', dest='height', metavar='N', type=float, help='height of the depicted area in meters, will override your configuration')
-    parser.add_argument('--image_width', dest='image_width', metavar='N', type=float, help='width of the result image, will override your configuration (where you can also find an explanation of how this option interacts with the -m, -w, and -h options)')
-    parser.add_argument('--image_height', dest='image_height', metavar='N', type=float, help='height of the result image, will override your configuration (where you can also find an explanation of how this option interacts with the -m, -w, and -h options)')
+    optional = parser.add_argument_group("Optional arguments")
+
+    # override default help argument so that only --help (and not -h) can call
+    optional.add_argument("--help",
+        default=argparse.SUPPRESS,
+        action="help",
+        help="Show this message and exit."
+    )
+    optional.add_argument("-v", "--verbose",
+        action="store_true",
+        help="Output debug information while running."
+    )
+    optional.add_argument("--version",
+        dest="current_version",
+        metavar="N",
+        type=int,
+        default=904,  # current as of July 2021
+        help="Current Google Maps version. This tool tries to determine it automatically, but if that fails (due to a GDPR consent screen, for instance), you can override the likely-outdated default/fallback: Navigate to Google Maps in your browser, open its developer tools, and search the HTML source code of the page for the string 'khms0.google.com/kh/v\\u003d'. The number right after the 'd' is the current version."
+    )
+
+    positional = parser.add_argument_group("Positional argument")
+    positional.add_argument("point",
+        metavar="LAT,LON",
+        type=str,
+        help="Point of interest specified as a latitude-longitude pair, \033[3me.g.\033[0m, '37.453896,126.446829'. (Be aware that negative latitudes yield argument parsing errors unless you wrap the point, preceded with a space, in quotes, \033[3me.g.\033[0m, ' -51.699730,-57.852601'.)"
+    )
+
+    area = parser.add_argument_group("Area definition",
+        description="Some explanation of these options is in order: You need to specify width and height. You can also specify a maximum meters per pixel constraint – see below – but you don't have to if image width or height are specified, it can be automatically derived in this case. Of these two, only one is required, the other will be computed. Note that if you set both image width and height but they don't match the aspect ratio of the area, things will look squished."
+    )
+    area.add_argument("-w", "--width",
+        metavar="N",
+        type=float,
+        default=argparse.SUPPRESS,
+        help="Width of the depicted area in meters."
+    )
+    area.add_argument("-h", "--height",
+        metavar="N",
+        type=float,
+        default=argparse.SUPPRESS,
+        help="Height of the depicted area in meters."
+    )
+    area.add_argument("-m", "--max-meters-per-pixel",
+        dest="max_meters_per_pixel",
+        metavar="N",
+        type=float,
+        default=argparse.SUPPRESS,
+        help="Maximally allowable meters contained in a single pixel of the result image (\033[3mafter\033[0m scaling to image width and height), determines the required tile zoom level, setting it as coarse as possible (to conserve bandwidth and processing overhead) while still fulfilling this constraint."
+    )
+    area.add_argument("--image-width",
+        dest="image_width",
+        metavar="N",
+        type=float,
+        default=argparse.SUPPRESS,
+        help="Width of the result image in pixels."
+    )
+    area.add_argument("--image-height",
+        dest="image_height",
+        metavar="N",
+        type=float,
+        default=argparse.SUPPRESS,
+        help="Height of the result image in pixels."
+        )
+
+    output = parser.add_argument_group("Output configuration",
+        description="All files will be output in the current directory. Note that, as opposed to how it's done in ærialbot, map tiles aren't written to the file system."
+    )
+    output.add_argument("-f", "--format",
+        dest="output_format",
+        type=str,
+        choices=["jpegs", "gif", "both"],
+        default="both",
+        help="output format: 'jpegs' will output a bunch of jpegs, 'gif' will collect them into a gif instead (with the usual fidelity and filesize implications), 'both' will do both"
+    )
+    output.add_argument("-q", "--quality",
+        type=int,
+        default=90,
+        help="jpeg compression quality (0-100), only relevant if JPEGs are emitted"
+    )
+    output.add_argument("-r", "--framerate",
+        type=float,
+        default=3,
+        help="number of frames per second, only relevant if GIFs are emitted"
+    )
+
+    # parse arguments
     args = parser.parse_args()
 
-    info("Processing command-line options...")
+    # initialize status messages printer
+    printer = Printer(args.verbose)
 
-    # copy the configuration into variables for brevity
+    printer.info("Processing command-line options...")
+    printer.debug(args)
+
+    # process options
     point = tuple(map(float, args.point.split(",")))
     p = GeoPoint(point[0], point[1])
 
+    current_version = args.current_version
+
     max_meters_per_pixel = None
-    if args.max_meters_per_pixel:
+    if hasattr(args, "max_meters_per_pixel"):
         max_meters_per_pixel = args.max_meters_per_pixel
 
     width = None
     height = None
-    if args.width:
+    if hasattr(args, "width"):
         width = args.width
-    if args.height:
+    if hasattr(args, "height"):
         height = args.height
 
     image_width = None
     image_height = None
-    if args.image_width:
+    if hasattr(args, "image_width"):
         image_width = args.image_width
-    if args.image_height:
+    if hasattr(args, "image_height"):
         image_height = args.image_height
 
-    ############################################################################
+    output_format = args.output_format
+    quality = args.quality
+    framerate = args.framerate
 
-    info("Determining current Google Maps version (we'll work our way backwards from there)...")
-
-    # automatic fallback: current as of July 2021, will likely continue
-    # to work for at least a while
-    current_version = '904'
-    try:
-        google_maps_page = requests.get("https://www.google.com/maps/", headers={'User-Agent': USER_AGENT}).content
-        match = re.search(rb'khms0\.google\.com\/kh\/v\\u003d([0-9]+)', google_maps_page)
-        if match:
-            current_version = match.group(1).decode('ascii')
-            debug(current_version)
-        else:
-            warning(f"Unable to extract current version, proceeding with outdated version {current_version} instead.")
-    except requests.RequestException as e:
-        warning(f"Unable to load Google Maps, proceeding with outdated version {current_version} instead.")
-    current_version = int(current_version)
-
-    # TODO if wasn't able to determine the current version, try working our way forward from outdated version based on map tile z=0x=0y=0?
-
-    # process max_meters_per_pixel setting
+    # process max_meters_per_pixel option
     if image_width is None and image_height is None:
-        assert max_meters_per_pixel is not None
+        if max_meters_per_pixel is None:
+            raise ValueError("neither image height nor width given, so a maximum meters per pixel constraint needs to be specified")
     elif image_height is None:
         max_meters_per_pixel = (max_meters_per_pixel or 1) * (width / image_width)
     elif image_width is None:
         max_meters_per_pixel = (max_meters_per_pixel or 1) * (height / image_height)
     else:
+
         # if both are set, effectively use whatever imposes a tighter constraint
         if width / image_width <= height / image_height:
             max_meters_per_pixel = (max_meters_per_pixel or 1) * (width / image_width)
@@ -574,90 +652,136 @@ def main():
         elif image_width is None:
             image_width = width * (image_height / height)
 
-    info("Computing required tile zoom level at specified point...")
+    ############################################################################
+
+    printer.info("Determining current Google Maps version (we'll work our way backwards from there)...")
+
+    # automatic fallback: current as of July 2021, will likely continue
+    # to work for at least a while
+    try:
+        google_maps_page = requests.get("https://www.google.com/maps/", headers={"User-Agent": USER_AGENT}).content
+        match = re.search(rb"khms0\.google\.com\/kh\/v\\u003d([0-9]+)", google_maps_page)
+        if match:
+            current_version = int(match.group(1).decode("ascii"))
+            printer.debug(current_version)
+        else:
+            printer.warn(f"Unable to extract current version, proceeding with outdated version {current_version} instead.")
+    except requests.RequestException:
+        printer.warn(f"Unable to load Google Maps, proceeding with outdated version {current_version} instead.")
+
+    printer.info("Computing required tile zoom level at specified point...")
     zoom = p.compute_zoom_level(max_meters_per_pixel)
-    debug(zoom)
+    printer.debug(zoom)
 
-    info("Generating rectangle with your selected width and height around point...")
+    printer.info("Generating rectangle with your selected width and height around point...")
     rect = GeoRect.around_geopoint(p, width, height)
-    debug(rect)
+    printer.debug(rect)
 
-    downloadedGrids = []
+    ############################################################################
+
+    printer.info("Alrighty, prep work's done!")
+
+    image_path_template = "googlemapsat88mph-{datetime}-v{versions}-x{xmin}..{xmax}y{ymin}..{ymax}-z{zoom}-{latitude},{longitude}-{width}x{height}m"
+
+    previousGrid = None
     downloadedImages = []
     for version in range(current_version, -1, -1):
+        try:
+            printer.head(f"Version {version}")
 
-        # TODO maybe prepend version to status messages here?
+            printer.info("Turning rectangle into a grid of map tiles at the required zoom level and for the current version...")
+            grid = MapTileGrid.from_georect(rect, zoom, version)
+            printer.debug(grid)
 
-        info(f"Alrighty, prep work's done, trying version {version}...")
-        # TODO only do the alrighty thing on the first iteration (or before entering the loop)
+            # if we're not on the first iteration, check if the imagery differs at the corners
+            if version != current_version:
+                printer.info("Downloading corner tiles and comparing with previously downloaded version...")
+                if grid.corners_identical(previousGrid):
+                    printer.info("Imagery seems identical, going to next version instead of downloading this one...")
+                    continue
 
-        info("Turning rectangle into a grid of map tiles at the required zoom level and for the current version...")
-        grid = MapTileGrid.from_georect(rect, zoom, version)
-        debug(grid)
+            previousGrid = grid
 
-        if version != current_version:
-            # TODO improve message
-            #info("Downloading the tiles at the corners and comparing with previously downloaded version...")
-            info("Comparing corners with previously downloaded version...")
-            # TODO compare against corners of all previously downloaded versions since sometimes rollback?
-            if grid.cornersIdentical(downloadedGrids[-1]):
-                info("Imagery seems identical, going to next version instead of downloading this one...")
-                continue
+            printer.info("Downloading tiles...")
+            grid.download()
 
-        info("Downloading tiles...")
-        grid.download()
+            printer.info("Stitching tiles together into an image...")
+            grid.stitch()
+            image = MapTileImage(grid.image, version)
 
-        # TODO if errors: continue
+            printer.info("Cropping image to match the chosen area width and height...")
+            printer.debug((width, height))
+            image.crop(zoom, rect)
 
-        info("Stitching tiles together into an image...")
-        grid.stitch()
-        image = MapTileImage(grid.image)
+            if image_width is not None or image_height is not None:
+                printer.info("Scaling image...")
+                printer.debug((image_width, image_height))
+                image.scale(image_width, image_height)
 
-        info("Cropping image to match the chosen area width and height...")
-        debug((width, height))
-        image.crop(zoom, rect)
+            if output_format != "gif":
+                printer.info("Saving image to disk...")
 
-        if image_width is not None or image_height is not None:
-            info("Scaling image...")
-            debug((image_width, image_height))
-            image.scale(image_width, image_height)
+                image_path = (image_path_template + ".jpg").format(
+                    datetime=datetime.today().strftime("%Y-%m-%dT%H.%M.%S"),
+                    versions=version,
+                    xmin=grid.at(0, 0).x,
+                    xmax=grid.at(0, 0).x+grid.width,
+                    ymin=grid.at(0, 0).y,
+                    ymax=grid.at(0, 0).y+grid.height,
+                    zoom=zoom,
+                    latitude=p.lat,
+                    longitude=p.lon,
+                    width=width,
+                    height=height
+                )
+                printer.debug(image_path)
+                image_quality = quality
+                image.save(image_path, image_quality)
 
-        info("Saving image to disk...")
-        image_path_template = "googlemaps-{datetime}-v{version}-x{xmin}..{xmax}y{ymin}..{ymax}-z{zoom}-{latitude},{longitude}-{width}x{height}m.jpg"
-        image_path = image_path_template.format(
-            datetime=datetime.today().strftime("%Y-%m-%dT%H.%M.%S"),
-            version=version,
-            xmin=grid.at(0, 0).x,
-            xmax=grid.at(0, 0).x+grid.width,
-            ymin=grid.at(0, 0).y,
-            ymax=grid.at(0, 0).y+grid.height,
-            zoom=zoom,
-            latitude=p.lat,
-            longitude=p.lon,
-            width=width,
-            height=height
-        )
-        debug(image_path)
-        image_quality = 90
-        image.save(image_path, image_quality)
+            # keep track of downloaded images for gif writing
+            downloadedImages.append(image)
 
-        # keep track of TODO
-        downloadedImages.append(image)
+        except MissingTilesError as e:
 
-        # keep track of TODO
-        downloadedGrids.append(grid)
+            # provide a good error message if not even the ostensibly-current
+            # version could be downloaded
+            if version == current_version:
+                raise RuntimeError("couldn't download the current version – either your connection's wonky or that version doesn't exist")
 
-        print(downloadedImages)
+            # if only some tiles are missing, the version does exists but the
+            # connection's wonky – but if all are missing, either the
+            # connection's dead or that was it
+            if (e.missing != e.total):
+                raise e
+            else:
+                printer.info(f"It appears as though version {version} has been purged, or your internet connection has disappeared – either way, this is the end of the line.")
 
-        # TODO if gif generation: make!
-        # TODO unindent once error handling done, also status message
-        # TODO proper filename
-        # TODO maybe option for format: jpeg, gif, both. also gif framerate option
-        # TODO => maybe class for "maptilegif"?
-        downloadedImages[0].image.save("test.gif", append_images=[test.image for test in downloadedImages[1:]], save_all=True, duration=200, loop=0)
+                if output_format != "jpeg":
 
-    info("All done!")
+                    # reverse downloaded images list to proceed from oldest to newest
+                    downloadedImages.reverse()
 
+                    printer.info("Writing GIF...")
+                    image_path = (image_path_template + ".gif").format(
+                        datetime=datetime.today().strftime("%Y-%m-%dT%H.%M.%S"),
+                        versions=",".join(map(lambda i: str(i.version), downloadedImages)),
+                        xmin=grid.at(0, 0).x,
+                        xmax=grid.at(0, 0).x+grid.width,
+                        ymin=grid.at(0, 0).y,
+                        ymax=grid.at(0, 0).y+grid.height,
+                        zoom=zoom,
+                        latitude=p.lat,
+                        longitude=p.lon,
+                        width=width,
+                        height=height
+                    )
+                    downloadedImages[0].image.save(image_path, append_images=[i.image for i in downloadedImages[1:]], save_all=True, duration=1000/framerate, loop=0)
+                    printer.debug(image_path)
+
+                printer.info("All done! 🛰")
+
+                # exit the loop (thereby terminate the program)
+                break
 
 if __name__ == "__main__":
     main()
@@ -667,17 +791,14 @@ if __name__ == "__main__":
 
 
 # TODO
-# - more graceful termination (generally better error checking?, also for 4-corners?)
-# - suppress debug output depending on verbose flag or something
-#   maybe colorful status output
-#   generally think about output
+# - commit, then maybe take another stab at not having to create new tilegrids in every iteration
+# - also try to make diff detection more efficient
 # - cull unnecessary bits of leftover code
 # - write readme, promote on twitter (make a bot? nah...), etc.
 #   explain 88 mph reference
 #   screencapture of cli output
 #   example gifs/mp4s: my hood, some place in the us, turkey cpi, something in korea or china
 #   check how often versions change
-
-
-# python3 googlemapsat88mph.py 48.471839,8.935646 -w 300 -h 300 -m 0.2 --image_width 500 --image_height 500
+# examples:
+# python3 googlemapsat88mph.py 48.471839,8.935646 -w 300 -h 300 -m 0.2 --image-width 500 --image-height 500
 # python3 googlemapsat88mph.py "37.087214, 40.058665" -w 15000 -h 15000 -m 10

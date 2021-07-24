@@ -60,7 +60,7 @@ $ python3 googlemapsat88mph.py 38.900068,-77.036555 1000 1000 -w 500
 
 That's basically it, but for your viewing pleasure, here's a video of the CLI in action:
 
-TODO
+https://user-images.githubusercontent.com/1944410/126881010-a007e632-2229-440b-a0fe-768f5ce22d14.mp4
 
 
 ## FAQ

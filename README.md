@@ -8,15 +8,17 @@ Scroll down to learn how to set it up on your machine, or stay up here for some 
 
 There's usually two or three different views of any given area available in the "version history", which can yield neat 3D effects (the `<img title="">` attributes contain the invocations used to generate them):
 
-TODO title attrs
+<img src="demo/googlemapsat88mph-2021-07-24T21.03.20-v868,869,870,891,904-x18742..18745y25068..25071-z16-38.900068,-77.036555-1000.0x1000.0m.gif" title="python3 googlemapsat88mph.py 38.900068,-77.036555 1000 1000 -w 500" width="32%"><img src="demo/spacer.gif" width="2%"><img src="demo/googlemapsat88mph-2021-07-24T22.13.07-v877,903,904-x68787..68791y45301..45305-z17-48.474655,8.934258-500.0x500.0m.gif" title="python3 googlemapsat88mph.py 48.474655,8.934258 500 500 -w 500" width="32%"><img src="demo/spacer.gif" width="2%"><img src="demo/googlemapsat88mph-2021-07-24T22.32.40-v865,893,904-x107054..107058y57064..57069-z17-22.648492,114.037832-1000.0x1000.0m.gif" title="python3 googlemapsat88mph.py 22.648492,114.037832 1000 1000 -w 500" width="32%">
 
-<img src="demo/googlemapsat88mph-2021-07-24T21.03.20-v868,869,870,891,904-x18742..18745y25068..25071-z16-38.900068,-77.036555-1000.0x1000.0m.gif" width="32%"><img src="demo/spacer.gif" width="2%"><img src="demo/googlemapsat88mph-2021-07-24T21.03.20-v868,869,870,891,904-x18742..18745y25068..25071-z16-38.900068,-77.036555-1000.0x1000.0m.gif" width="32%"><img src="demo/spacer.gif" width="2%"><img src="demo/googlemapsat88mph-2021-07-24T21.03.20-v868,869,870,891,904-x18742..18745y25068..25071-z16-38.900068,-77.036555-1000.0x1000.0m.gif" width="32%">
+For areas of the world that have changed significantly recently, flipping through the imagery versions is almost like a timelapse – consider the port of Beirut before and after the [2020 explosion](https://en.wikipedia.org/wiki/2020_Beirut_explosion) on the left, or the perpetually-over-budget-and-behind-schedule construction of the new [Stuttgart central station](https://en.wikipedia.org/wiki/Stuttgart_Hauptbahnhof) on the right.
 
-For areas of the world that have changed significantly recently, flipping through the imagery versions is almost like a timelapse – consider the [port of Beirut](https://en.wikipedia.org/wiki/2020_Beirut_explosion) on the left, or TODO
+<img src="demo/googlemapsat88mph-2021-07-24T22.19.39-v873,875,904-x39231..39237y26199..26203-z16-33.900646,35.518118-2297.0x1500.0m.gif" title="python3 googlemapsat88mph.py 33.900646,35.518118 2297 1500 -h 500" width="49%"><img src="demo/spacer.gif" width="2%"><img src="demo/googlemapsat88mph-2021-07-24T22.24.29-v877,888,904-x137756..137762y90264..90268-z18-48.783753,9.183353-459.5x300.0m.gif" title="python3 googlemapsat88mph.py 48.783753,9.183353 459.5 300 -h 500" width="49%">
 
-<img src="demo/googlemapsat88mph-2021-07-24T21.03.20-v868,869,870,891,904-x18742..18745y25068..25071-z16-38.900068,-77.036555-1000.0x1000.0m.gif" width="32%"><img src="demo/spacer.gif" width="2%"><img src="demo/googlemapsat88mph-2021-07-24T21.03.20-v868,869,870,891,904-x18742..18745y25068..25071-z16-38.900068,-77.036555-1000.0x1000.0m.gif" width="32%"><img src="demo/spacer.gif" width="2%"><img src="demo/googlemapsat88mph-2021-07-24T21.03.20-v868,869,870,891,904-x18742..18745y25068..25071-z16-38.900068,-77.036555-1000.0x1000.0m.gif" width="32%">
+It's also fun to look at airports through the lens this tool provides:
 
-Because Google regularly removes the oldest available versions, all of this is very ephemeral – a year from now, the invocations of this tool that have created the GIFs above may yield totally different results. Longer-term timelapses of the surface of our planet can be found on [Google Earth Timelapse](https://earthengine.google.com/timelapse/) *(or through [@earthacrosstime](https://twitter.com/earthacrosstime), another weekend project of mine, namely a Twitter bot of mine that posts randomly selected timelapses off it)*, but what's available there doesn't reach the high resolution of Google Maps.
+<img src="demo/googlemapsat88mph-2021-07-24T22.35.11-v897,904-x22425..22429y52383..52387-z17-33.940924,-118.402552-700.0x700.0m.gif" title="python3 googlemapsat88mph.py 33.940924,-118.402552 700 700 -w 500" width="32%"><img src="demo/spacer.gif" width="2%"><img src="demo/googlemapsat88mph-2021-07-24T22.39.30-v864,867,868,872,873,877,882,888,891,897,903,904-x38482..38486y27014..27018-z16-30.106566,31.398192-1200.0x1200.0m.gif" title="python3 googlemapsat88mph.py 30.106566,31.398192 1200 1200 -h 500" width="32%"><img src="demo/spacer.gif" width="2%"><img src="demo/googlemapsat88mph-2021-07-24T22.44.43-v897,904-x33634..33638y21554..21557-z16-52.309827,4.766492-1000.0x1000.0m.gif" title="python3 googlemapsat88mph.py 52.309827,4.766492 1000 1000 -h 500" width="32%">
+
+Because Google regularly removes the oldest available versions, all of this is rather ephemeral – a year from now, the invocations of this tool that have created the GIFs above may yield totally different results. Longer-term timelapses of the surface of our planet can be found on [Google Earth Timelapse](https://earthengine.google.com/timelapse/) *(or through [@earthacrosstime](https://twitter.com/earthacrosstime), another weekend project of mine, namely a Twitter bot of mine that posts randomly selected timelapses off it)*, but what's available there doesn't reach the high resolution of Google Maps.
 
 
 ## Setup
@@ -52,11 +54,13 @@ Along with those three, you need to supply a value for at least one of the `-m`,
 
 For example, the following invocation will create the first of the GIFs embedded above, showing the White House:
 
+```bash
+$ python3 googlemapsat88mph.py 38.900068,-77.036555 1000 1000 -w 500
+```
+
+That's basically it, but for your viewing pleasure, here's a video of the CLI in action:
+
 TODO
-
-TODO maybe screenshot/gif of cli in action
-
-That's basically it!
 
 
 ## FAQ

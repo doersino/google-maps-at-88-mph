@@ -14,7 +14,7 @@ import threading
 
 import requests
 
-from PIL import Image, ImageEnhance, ImageOps, ImageChops
+from PIL import Image, ImageOps, ImageChops
 Image.MAX_IMAGE_PIXELS = None
 
 
@@ -507,8 +507,8 @@ class Printer:
 
 def main():
     parser = argparse.ArgumentParser(
-        add_help=False,  # avoid adding the automatic `-h` and `--help` options
-                         # since `-h` is needed for specifying the image height
+        add_help=False,  # avoid adding the automatic '-h' and '--help' options
+                         # since '-h' is needed for specifying the image height
         description="Google Maps regularly updates the satellite imagery it serves its users, but outdated versions of the imagery are kept around for a year or two. This tool automatically crawls its way through these versions, figuring out which provide unique imagery and downloading it for a user-defined \033[3m(that's you! you get to define things!)\033[0m area, eventually assembling it in the form of a GIF. Based on ærialbot (see https://github.com/doersino/aerialbot). Requires the \033[3mPillow\033[0m and \033[3mrequests\033[0m libraries.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter  # show defaults
     )
@@ -801,4 +801,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

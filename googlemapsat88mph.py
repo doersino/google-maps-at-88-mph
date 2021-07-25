@@ -531,7 +531,7 @@ def main():
         metavar="N",
         type=int,
         default=904,  # current as of July 2021
-        help="Current Google Maps version. This tool tries to determine it automatically, but if that fails (due to a GDPR consent screen, for instance), you can override the likely-outdated default/fallback: Navigate to Google Maps in your browser, open its developer tools, and search the HTML source code of the page for the string 'khms0.google.com/kh/v\\u003d'. The number right after the 'd' is the current version."
+        help="Current Google Maps version. This tool tries to determine it automatically, but if that fails (due to a changes on Google's end, for instance), you can override the likely-outdated default/fallback: Navigate to Google Maps in your browser, open its developer tools, and search the HTML source code of the page for the string 'khms0.google.com/kh/v\\u003d'. The number right after the 'd' is the current version."
     )
 
     pointy = parser.add_argument_group("Point of interest")
@@ -677,8 +677,8 @@ def main():
     # automatic fallback: current as of July 2021, will likely continue
     # to work for at least a while
     try:
-        google_maps_page = requests.get("https://www.google.com/maps/", headers={"User-Agent": USER_AGENT}).content
-        match = re.search(rb"khms0\.google\.com\/kh\/v\\u003d([0-9]+)", google_maps_page)
+        google_maps_page = requests.get("https://maps.googleapis.com/maps/api/js", headers={"User-Agent": USER_AGENT}).content
+        match = re.search(rb"khms0\.googleapis\.com\/kh\?v=([0-9]+)", google_maps_page)
         if match:
             current_version = int(match.group(1).decode("ascii"))
             printer.debug(current_version)

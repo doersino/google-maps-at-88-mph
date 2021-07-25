@@ -403,12 +403,13 @@ class MapTileGrid:
     def corners_identical_to(self, other):
         """
         Checks whether the four corners of this grid are identical to the ones
-        from another grid. The other grid must already be fully loaded (or, at
-        least, there corners must be present).
+        from another grid. The other grid MUST already be fully loaded (or, at
+        least, its corners must be).
         """
 
         self_corners = self.corners()
         other_corners = other.corners()
+        assert all([maptile.status == MapTileStatus.DOWNLOADED for maptile in other_corners])
 
         # download self's corners
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
@@ -715,6 +716,7 @@ def main():
                 if grid.corners_identical_to(previousGrid):
                     printer.info("Imagery seems identical, going to next version instead of downloading this one...")
                     continue
+                printer.info("They're different! So:")
 
             previousGrid = grid
 

@@ -80,3 +80,5 @@ Probably. I haven't checked. But they haven't banned my IP for downloading tens 
 ### Something is broken – can you fix it?
 
 Possibly. Please feel free to [file an issue](https://github.com/doersino/google-maps-at-88-mph/issues) – I'll be sure to take a look!
+
+<img src="demo/googlemapsat88mph-2021-07-25T14.06.43-v888,891,900,904-x32678..32689y21801..21805-z16-51.471279,-0.464004-4000.0x1280.0m.gif" title="python3 googlemapsat88mph.py 51.471279,-0.464004 4000 1280 -h 500" width="100%">

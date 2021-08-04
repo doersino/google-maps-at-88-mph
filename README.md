@@ -1,6 +1,6 @@
 # google-maps-at-88-mph
 
-The folks maintaining [Google Maps](https://www.google.com/maps) regularly update the satellite imagery it serves its users, but **outdated versions of the imagery are kept around in for a year or two**. This Python-based tool automatically crawls its way through these versions, figuring out which provide unique imagery and downloading it for a user-defined *(that's you! you get to define things!)* area, eventually **assembling it in the form of a GIF**.
+The folks maintaining [Google Maps](https://www.google.com/maps) regularly update the satellite imagery it serves its users, but **outdated versions of the imagery are kept around for a year or two**. This Python-based tool automatically crawls its way through these versions, figuring out which provide unique imagery and downloading it for a user-defined *(that's you! you get to define things!)* area, eventually **assembling it in the form of a GIF**.
 
 *This weekend project is based on [ærialbot](https://github.com/doersino/aerialbot), a previous weekend project of mine.*
 

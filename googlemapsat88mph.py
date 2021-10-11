@@ -929,7 +929,8 @@ def main():
             # provide a good error message if not even the ostensibly-current
             # version could be downloaded
             if version == current_version:
-                raise RuntimeError("couldn't download the current version – either your connection's wonky or that version doesn't exist")
+                printer.info(f"Couldn't download the current version, not to mention any previous ones – either your connection's wonky or imagery plain doesn't exist for the selected area at the computed zoom level.")
+                break
 
             # otherwise, exit with some semblance of grace
             printer.info(f"It appears as though version {version} has been purged, or your internet connection has (at least partially) disappeared – either way, this is the end of the line.")

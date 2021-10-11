@@ -459,11 +459,11 @@ class MapTileGrid:
         for x in range(bottomleft.x, topright.x + 1):
             col = []
 
-            # it's correct to have `topright` (i.e. "northeast" when direction is
-            # "downward" or "northward") and `bottomleft` (i.e. similarly
-            # "southwest") reversed here (with regard to the outer loop) since y
-            # axis of the tile coordinates points toward the south, while the
-            # latitude axis points due north
+            # it's correct to have `topright` (i.e. "northeast" when direction
+            # is "downward" or "northward") and `bottomleft` (i.e. similarly
+            # "southwest") reversed here (with regard to the outer loop) since
+            # the y axis of the tile coordinates points toward the south, while
+            # the latitude axis points due north
             for y in range(topright.y, bottomleft.y + 1):
                 maptile = MapTile(version, zoom, direction, x, y)
                 col.append(maptile)

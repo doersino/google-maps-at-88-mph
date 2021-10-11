@@ -120,7 +120,7 @@ class ObliqueWebMercator:
         """
         An implementation of the Oblique Web Mercator projection that returns
         floats. That's required for cropping of stitched-together tiles such
-        that they only show the configured area, hence no use of math.floor
+        that they only show the configured area, hence no use of `math.floor`
         here. Based on the Web Mercator projection, with corrections for
         obliqueness.
         """

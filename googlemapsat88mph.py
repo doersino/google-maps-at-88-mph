@@ -694,7 +694,7 @@ def main():
     )
 
     area = parser.add_argument_group("Area definition",
-        description="Some explanation of these arguments is in order: You \033[3mneed\033[0m to specify width and height. You can also specify a maximum meters per pixel constraint – see below – but you don't have to if image width or height are specified (note that if neither is, the resulting image dimensions vary by latitude), the maximum meters per pixel constraint can be automatically derived in this case. Only image width \033[3mor\033[0m height is required, the other will be computed. Note that if you set \033[3mboth\033[0m image width and height but they don't match the aspect ratio of the selected area (accounting for foreshortening if an oblique view is configured), things will look squished."
+        description="Some explanation of these arguments is in order: You \033[3mneed\033[0m to specify width and height. You can also specify a maximum meters per pixel constraint – see below – but you don't have to if \033[3mimage\033[0m width or height are specified (note that if neither is, the resulting image dimensions vary by latitude), the maximum meters per pixel constraint can be automatically derived in this case (which is why that option, then, turns into a scale factor, \033[3me.g.\033[0m, 0.5 will download twice the resolution that'd be required – this can make things look crisper). Only image width \033[3mor\033[0m height is required, the other will be computed. Note that if you set \033[3mboth\033[0m image width and height but they don't match the aspect ratio of the selected area (accounting for foreshortening if an oblique view is configured), things will look squished."
     )
     area.add_argument("width",
         metavar="WIDTH",

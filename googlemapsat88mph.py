@@ -866,6 +866,7 @@ def main():
 
     previous_grid = None
     downloaded_images = []
+    skipped_versions = 0
     for version in range(current_version, -1, -1):
         try:
             printer.head(f"Version {version}")
@@ -924,6 +925,9 @@ def main():
             # keep track of downloaded images for gif writing
             downloaded_images.append(image)
 
+            # reset skipped versions counter
+            skipped_versions = 0
+
         except MissingTilesError as e:
 
             # provide a good error message if not even the ostensibly-current
@@ -932,8 +936,14 @@ def main():
                 printer.info(f"Couldn't download the current version, not to mention any previous ones – either your connection's wonky or imagery plain doesn't exist for the selected area at the computed zoom level.")
                 break
 
+            # try skipping to an older version in case an intermediate one has been removed
+            skipped_versions += 1
+            if skipped_versions < 3:
+                printer.info(f"Couldn't download version {version}, skipping...")
+                continue
+
             # otherwise, exit with some semblance of grace
-            printer.info(f"It appears as though version {version} has been purged, or your internet connection has (at least partially) disappeared – either way, this is the end of the line.")
+            printer.info(f"It appears as though versions {version + skipped_versions} through {version} (and probably more) have been purged, or your internet connection has (at least partially) disappeared – either way, this seems to be the end of the line.")
 
             if output_format != "jpeg":
 

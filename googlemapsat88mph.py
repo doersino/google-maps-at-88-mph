@@ -937,9 +937,9 @@ def main():
                 break
 
             # try skipping to an older version in case an intermediate one has been removed
-            skipped_versions += 1
             if skipped_versions < 3:
                 printer.info(f"Couldn't download version {version}, skipping...")
+                skipped_versions += 1
                 continue
 
             # otherwise, exit with some semblance of grace
